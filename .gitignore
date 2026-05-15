@@ -1,0 +1,31 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/lib/__pycache__/
+backend/api/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Environment — never commit real secrets
+backend/.env
+.env
+.env.local
+.env.*.local
+
+# Frontend build output and deps
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# Vercel
+.vercel/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.sw?
