@@ -112,11 +112,6 @@ async def get_or_create_user(
     token: str,
     db: AsyncSession,
 ) -> User:
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if user:
-        return user
-
     payload = verify_supabase_jwt(token)
     user_meta = payload.get("user_metadata", {})
     app_meta = payload.get("app_metadata", {})
@@ -131,6 +126,22 @@ async def get_or_create_user(
     )
     avatar_url = user_meta.get("avatar_url")
 
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user:
+        # Refresh stale profile fields (e.g. user was created before metadata extraction worked)
+        changed = False
+        if not user.username or user.username == "unknown":
+            user.username = username; changed = True
+        if not user.email and email:
+            user.email = email; changed = True
+        if not user.avatar_url and avatar_url:
+            user.avatar_url = avatar_url; changed = True
+        if changed:
+            await db.commit()
+            await db.refresh(user)
+        return user
+
     # If the same email already exists under a different Supabase UUID (e.g. after
     # account re-linking deleted an old account), migrate that row to the new UUID.
     if email:
@@ -138,7 +149,6 @@ async def get_or_create_user(
         stale = result.scalar_one_or_none()
         if stale and stale.id != user_id:
             logger.info("Migrating user %s → %s (email: %s)", stale.id, user_id, email)
-            # Reassign FK rows first, then delete the stale user so the new INSERT succeeds.
             await db.execute(update(Repo).where(Repo.user_id == stale.id).values(user_id=user_id))
             await db.execute(update(Project).where(Project.user_id == stale.id).values(user_id=user_id))
             await db.delete(stale)
