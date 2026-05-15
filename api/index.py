@@ -12,7 +12,6 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
-from mangum import Mangum
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -289,7 +288,3 @@ async def create_project(
     await db.commit()
     await db.refresh(project)
     return project
-
-
-# Vercel serverless handler
-handler = Mangum(app, lifespan="off")
