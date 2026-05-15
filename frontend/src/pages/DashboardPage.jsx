@@ -553,7 +553,9 @@ export default function DashboardPage() {
     setLoading(true)
     try {
       const [uR, rR, pR] = await Promise.all([api.get('/api/me'), api.get('/api/repos'), api.get('/api/projects')])
-      setUser(uR.data); setRepos(rR.data); setProjects(pR.data)
+      setUser(uR.data)
+      setRepos(Array.isArray(rR.data) ? rR.data : [])
+      setProjects(Array.isArray(pR.data) ? pR.data : [])
       await checkGitHub()
     } catch { setError('Failed to load data. Please try again.') }
     finally { setLoading(false) }
@@ -591,7 +593,7 @@ export default function DashboardPage() {
 
   const handleSync = async () => {
     setSyncing(true); setError(null)
-    try { setRepos((await api.get('/api/repos/sync')).data); setHasGitHub(true) }
+    try { const { data } = await api.get('/api/repos/sync'); setRepos(Array.isArray(data) ? data : []); setHasGitHub(true) }
     catch { setError('Sync failed. Make sure GitHub is connected.') }
     finally { setSyncing(false) }
   }
