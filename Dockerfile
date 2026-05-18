@@ -19,4 +19,4 @@ COPY api/ ./api/
 COPY lib/ ./lib/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 EXPOSE 8000
-CMD ["uvicorn", "api.index:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.index:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
