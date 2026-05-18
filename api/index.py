@@ -181,6 +181,11 @@ async def get_or_create_user(
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.get("/api/me", response_model=UserOut)
 async def me(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
