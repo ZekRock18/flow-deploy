@@ -15,6 +15,7 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     poolclass=NullPool,
+    connect_args={"ssl": "require"},
 )
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
