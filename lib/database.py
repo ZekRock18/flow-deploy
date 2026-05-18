@@ -14,7 +14,7 @@ engine = (
         DATABASE_URL,
         echo=False,
         poolclass=NullPool,
-        connect_args={"ssl": "require"},
+        connect_args={"ssl": "require", "timeout": 5},
     )
     if DATABASE_URL
     else None
