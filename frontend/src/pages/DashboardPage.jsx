@@ -581,6 +581,13 @@ export default function DashboardPage() {
     }
   }, [])
 
+  const handleSync = useCallback(async () => {
+    setSyncing(true); setError(null)
+    try { const { data } = await api.get('/api/repos/sync'); setRepos(Array.isArray(data) ? data : []); setHasGitHub(true) }
+    catch { setError('Sync failed. Make sure GitHub is connected.') }
+    finally { setSyncing(false) }
+  }, [])
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.provider_token) {
@@ -589,14 +596,7 @@ export default function DashboardPage() {
       }
     })
     return () => subscription.unsubscribe()
-  }, []) // eslint-disable-line
-
-  const handleSync = async () => {
-    setSyncing(true); setError(null)
-    try { const { data } = await api.get('/api/repos/sync'); setRepos(Array.isArray(data) ? data : []); setHasGitHub(true) }
-    catch { setError('Sync failed. Make sure GitHub is connected.') }
-    finally { setSyncing(false) }
-  }
+  }, [checkGitHub, handleSync])
 
   const handleConnect = async () => {
     setConnecting(true)

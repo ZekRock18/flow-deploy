@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from functools import lru_cache
@@ -20,6 +21,11 @@ def _fetch_jwks() -> list:
     resp = httpx.get(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", timeout=10)
     resp.raise_for_status()
     return resp.json().get("keys", [])
+
+
+async def warm_jwks() -> None:
+    """Call once at startup to pre-populate the cache without blocking the event loop."""
+    await asyncio.to_thread(_fetch_jwks)
 
 
 def verify_supabase_jwt(token: str) -> dict:

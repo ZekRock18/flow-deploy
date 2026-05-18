@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, BigInteger, Integer, ForeignKey, Text, DateTime
+from sqlalchemy import String, Boolean, BigInteger, Integer, ForeignKey, Text, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .database import Base
@@ -27,6 +27,7 @@ class User(Base):
 
 class Repo(Base):
     __tablename__ = "repos"
+    __table_args__ = (UniqueConstraint("user_id", "github_repo_id", name="uq_repo_user_github"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))

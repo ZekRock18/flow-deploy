@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Project root (parent of api/) is where lib/ lives
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lib.auth import bearer_scheme, get_current_user_id, verify_supabase_jwt
+from lib.auth import bearer_scheme, get_current_user_id, verify_supabase_jwt, warm_jwks
 from lib.database import create_tables, get_db
 from lib.models import Project, Repo, User
 
@@ -31,6 +31,7 @@ load_dotenv()  # no-op on Vercel (env vars injected); loads .env from cwd locall
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_tables()
+    await warm_jwks()
     yield
 
 
@@ -38,7 +39,7 @@ app = FastAPI(lifespan=lifespan)
 
 _frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 _is_dev = _frontend_url == "http://localhost:5173"
-_allowed_origins = [_frontend_url] + (["http://localhost:5173"] if not _is_dev else [])
+_allowed_origins = [_frontend_url] + (["http://localhost:5173"] if _is_dev else [])
 
 app.add_middleware(
     CORSMiddleware,
@@ -194,20 +195,27 @@ async def sync_repos(
             detail="No GitHub access token available. Please log in with GitHub.",
         )
 
+    gh_repos = []
+    page = 1
     async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://api.github.com/user/repos",
-            headers={
-                "Authorization": f"Bearer {github_token}",
-                "Accept": "application/vnd.github+json",
-            },
-            params={"per_page": 100, "sort": "updated"},
-        )
-
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail="Failed to fetch repos from GitHub")
-
-    gh_repos = resp.json()
+        while True:
+            resp = await client.get(
+                "https://api.github.com/user/repos",
+                headers={
+                    "Authorization": f"Bearer {github_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                params={"per_page": 100, "sort": "updated", "page": page},
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=502, detail="Failed to fetch repos from GitHub")
+            batch = resp.json()
+            if not batch:
+                break
+            gh_repos.extend(batch)
+            if len(batch) < 100:
+                break
+            page += 1
     now = datetime.now(timezone.utc)
 
     for gh in gh_repos:
