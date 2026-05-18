@@ -619,7 +619,7 @@ export default function DashboardPage() {
     } catch (e) { setError(e.message); setConnecting(false) }
   }
 
-  const handleSignOut = async () => { await supabase.auth.signOut(); navigate('/', { replace: true }) }
+  const handleSignOut = () => { navigate('/', { replace: true }); supabase.auth.signOut() }
 
   const handleSignInGitHub = async () => {
     await supabase.auth.signOut()
