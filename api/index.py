@@ -149,10 +149,19 @@ async def get_or_create_user(
         stale = result.scalar_one_or_none()
         if stale and stale.id != user_id:
             logger.info("Migrating user %s → %s (email: %s)", stale.id, user_id, email)
+            # Insert new user without email first so the FK on repos/projects can be satisfied.
+            # The stale user still holds the unique email — setting email=None here avoids that conflict.
+            new_user = User(id=user_id, username=username, email=None, avatar_url=avatar_url, provider=provider)
+            db.add(new_user)
+            await db.flush()
             await db.execute(update(Repo).where(Repo.user_id == stale.id).values(user_id=user_id))
             await db.execute(update(Project).where(Project.user_id == stale.id).values(user_id=user_id))
             await db.delete(stale)
             await db.flush()
+            new_user.email = email
+            await db.commit()
+            await db.refresh(new_user)
+            return new_user
 
     user = User(id=user_id, username=username, email=email, avatar_url=avatar_url, provider=provider)
     db.add(user)
