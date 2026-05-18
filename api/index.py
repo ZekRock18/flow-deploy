@@ -12,6 +12,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -306,3 +307,10 @@ async def create_project(
     await db.commit()
     await db.refresh(project)
     return project
+
+
+# Serve React SPA — must be mounted last so API routes take precedence.
+# Only active when the built frontend/dist directory exists (i.e. Docker build).
+_static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
+if os.path.isdir(_static_dir):
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
