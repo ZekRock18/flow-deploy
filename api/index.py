@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -227,41 +228,41 @@ async def sync_repos(
             page += 1
     now = datetime.now(timezone.utc)
 
-    for gh in gh_repos:
-        result = await db.execute(
-            select(Repo).where(
-                Repo.user_id == user.id,
-                Repo.github_repo_id == gh["id"],
-            )
+    if gh_repos:
+        rows = [
+            {
+                "id": uuid.uuid4(),
+                "user_id": user.id,
+                "github_repo_id": gh["id"],
+                "name": gh["name"],
+                "full_name": gh["full_name"],
+                "description": gh.get("description"),
+                "url": gh["html_url"],
+                "language": gh.get("language"),
+                "stars": gh["stargazers_count"],
+                "forks": gh["forks_count"],
+                "is_private": gh["private"],
+                "synced_at": now,
+            }
+            for gh in gh_repos
+        ]
+        stmt = pg_insert(Repo).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["user_id", "github_repo_id"],
+            set_={
+                "name": stmt.excluded.name,
+                "full_name": stmt.excluded.full_name,
+                "description": stmt.excluded.description,
+                "url": stmt.excluded.url,
+                "language": stmt.excluded.language,
+                "stars": stmt.excluded.stars,
+                "forks": stmt.excluded.forks,
+                "is_private": stmt.excluded.is_private,
+                "synced_at": stmt.excluded.synced_at,
+            },
         )
-        repo = result.scalar_one_or_none()
-        if repo:
-            repo.name = gh["name"]
-            repo.full_name = gh["full_name"]
-            repo.description = gh.get("description")
-            repo.url = gh["html_url"]
-            repo.language = gh.get("language")
-            repo.stars = gh["stargazers_count"]
-            repo.forks = gh["forks_count"]
-            repo.is_private = gh["private"]
-            repo.synced_at = now
-        else:
-            repo = Repo(
-                user_id=user.id,
-                github_repo_id=gh["id"],
-                name=gh["name"],
-                full_name=gh["full_name"],
-                description=gh.get("description"),
-                url=gh["html_url"],
-                language=gh.get("language"),
-                stars=gh["stargazers_count"],
-                forks=gh["forks_count"],
-                is_private=gh["private"],
-                synced_at=now,
-            )
-            db.add(repo)
-
-    await db.commit()
+        await db.execute(stmt)
+        await db.commit()
 
     result = await db.execute(
         select(Repo).where(Repo.user_id == user.id).order_by(Repo.stars.desc())
