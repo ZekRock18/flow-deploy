@@ -33,7 +33,10 @@ load_dotenv()  # no-op on Vercel (env vars injected); loads .env from cwd locall
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_tables()
-    await warm_jwks()
+    try:
+        await warm_jwks()
+    except Exception as e:
+        logger.warning("JWKS pre-warm failed (will retry on first request): %s", e)
     yield
 
 
