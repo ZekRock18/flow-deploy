@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-_frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+_frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 _is_dev = _frontend_url == "http://localhost:5173"
 _allowed_origins = [_frontend_url] + (["http://localhost:5173"] if _is_dev else [])
 
