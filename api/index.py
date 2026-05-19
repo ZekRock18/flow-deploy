@@ -10,7 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -313,8 +313,15 @@ async def create_project(
     return project
 
 
-# Serve React SPA — must be mounted last so API routes take precedence.
-# Only active when the built frontend/dist directory exists (i.e. Docker build).
-_static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
-if os.path.isdir(_static_dir):
-    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
+_static_dir = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "frontend" / "dist"
+if _static_dir.is_dir():
+    _assets_dir = _static_dir / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        target = _static_dir / full_path
+        if full_path and target.is_file():
+            return FileResponse(str(target))
+        return FileResponse(str(_static_dir / "index.html"))
