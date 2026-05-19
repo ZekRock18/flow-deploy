@@ -1,5 +1,16 @@
 # FlowDeploy — Session Decisions Log
 
+## 2026-05-19 — Vibsl Full Debug Session (afternoon)
+- Fixed OAuth redirect: Supabase Site URL changed to vibsl URL; vibsl added to Redirect URLs allowlist
+- Fixed SPA routing: `StaticFiles(html=True)` does not serve index.html for unmatched paths like `/dashboard` — replaced with catch-all `/{full_path:path}` route returning index.html
+- Fixed frontend not being served: platform uses Dockerfile (not Nixpacks) — frontend/dist IS built and copied; static file mount was the bug
+- Fixed JWKS fetch blocking: Azure Container Apps cannot reach `wucxhhiuoafslchzfypx.supabase.co:443` — added `SUPABASE_JWKS_KEYS` env var support so keys are read directly without network call; added 30s failure cooldown
+- Root cause of 500 on all API endpoints: `asyncio.exceptions.CancelledError` in asyncpg `_create_ssl_connection` — Azure network blocks outbound TCP to `aws-1-ap-southeast-2.pooler.supabase.com:5432`
+- Current status: frontend loads, auth works, all API calls fail due to DB unreachable from Azure
+- Open: vibsl support contacted — waiting on whether port 5432 outbound is allowed on their platform
+- Open: if blocked confirmed, migrate backend to Railway/Render (AWS/GCP — can reach Supabase)
+- Commits this session: `fb5ba5e` (nixpacks frontend build), `5a5ac06` (SPA catch-all), `00af216` (JWKS env var fix)
+
 ## 2026-05-19 — Vibsl URL Routing Debug (ongoing)
 - Root cause narrowed: lifespan `create_tables()` was blocking startup — asyncpg default connect timeout ~60s hung before app could serve /health
 - Added `"timeout": 5` to asyncpg `connect_args` — reduced verify timeout from 2m37s → 1m40s (confirms DB hang was real)
