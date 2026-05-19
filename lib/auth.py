@@ -1,6 +1,8 @@
 import asyncio
+import json
 import os
 import uuid
+from datetime import datetime, timedelta
 from functools import lru_cache
 
 import httpx
@@ -15,16 +17,42 @@ bearer_scheme = HTTPBearer()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 
+_jwks_failure_until: datetime | None = None
+
 
 @lru_cache(maxsize=1)
-def _fetch_jwks() -> list:
+def _fetch_jwks_live() -> list:
     resp = httpx.get(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", timeout=10)
     resp.raise_for_status()
     return resp.json().get("keys", [])
 
 
+def _fetch_jwks() -> list:
+    global _jwks_failure_until
+
+    # Use pre-configured keys if available — avoids runtime network call entirely
+    static_keys = os.environ.get("SUPABASE_JWKS_KEYS")
+    if static_keys:
+        return json.loads(static_keys)
+
+    # Don't hammer the network if it recently failed
+    if _jwks_failure_until and datetime.utcnow() < _jwks_failure_until:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Auth service temporarily unavailable, retry shortly",
+        )
+
+    try:
+        return _fetch_jwks_live()
+    except Exception:
+        _jwks_failure_until = datetime.utcnow() + timedelta(seconds=30)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to reach auth service",
+        )
+
+
 async def warm_jwks() -> None:
-    """Call once at startup to pre-populate the cache without blocking the event loop."""
     await asyncio.to_thread(_fetch_jwks)
 
 
